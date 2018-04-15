@@ -8,4 +8,6 @@ public class IRConstants
 	
 	public static final String COMMON_PROXY = "zairus." + MOD_ID + ".proxy.CommonProxy";
     public static final String CLIENT_PROXY = "zairus." + MOD_ID + ".proxy.ClientProxy";
+
+    public static final String PATH_GUI_STORAGE = MOD_ID + ":textures/guis/";
 }

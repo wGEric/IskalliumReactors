@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.block.Block;
+import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -12,13 +13,23 @@ import net.minecraft.util.ITickable;
 import net.minecraft.util.math.BlockPos;
 import zairus.iskalliumreactors.IRConfig;
 import zairus.iskalliumreactors.block.IRBlocks;
+import zairus.iskalliumreactors.guis.BaseContainer;
+import zairus.iskalliumreactors.guis.GuiIRController;
+import zairus.iskalliumreactors.networking.MessageTile;
 
-public class TileEntityIRController extends TileEntity implements ITickable
+public class TileEntityIRController extends TileBase implements ITickable
 {
+	// @TODO: Make configurable
+	public static final int DEFAULT_CAPACITY = 0;
+	public static final int MAX_RECEIVE = 10000000;
+	public static final int MAX_EXTRACT = 10000000;
+
 	private List<Block> structureBlocks = new ArrayList<Block>();
 	private List<Block> casingBlocks = new ArrayList<Block>();
 	private List<Block> generatorBlocks = new ArrayList<Block>();
-	
+
+	private IREnergyStorage energyStorage;
+
 	private boolean reactorBuilt = false;
 	private int xStart = 0;
 	private int yStart = 0;
@@ -31,6 +42,8 @@ public class TileEntityIRController extends TileEntity implements ITickable
 	
 	public TileEntityIRController()
 	{
+		energyStorage = new IREnergyStorage(DEFAULT_CAPACITY, MAX_RECEIVE, MAX_EXTRACT, 0);
+
 		structureBlocks.add(IRBlocks.STEEL_CASING);
 		structureBlocks.add(IRBlocks.STEEL_CONTROLLER);
 		structureBlocks.add(IRBlocks.STEEL_POWERTAP);
@@ -61,35 +74,68 @@ public class TileEntityIRController extends TileEntity implements ITickable
 	{
 		return this.reactorBuilt;
 	}
-	
+
+	public int extractEnergy(boolean simulate) {
+		return extractEnergy(MAX_EXTRACT, simulate);
+	}
+
+	public int extractEnergy(int extract, boolean simulate) {
+		return energyStorage.extractEnergy(extract, simulate);
+	}
+
+	public int getEnergyStored()
+	{
+		return energyStorage.getEnergyStored();
+	}
+
+	public int getMaxEnergyStored()
+	{
+		return energyStorage.getMaxEnergyStored();
+	}
+
 	@Override
 	public void update()
 	{
-		++controlTicks;
-		
-		if (controlTicks >= 1000000)
-			controlTicks = 0;
-		
-		if (!this.world.isRemote && controlTicks % 20 == 0)
-		{
-			reactorBuilt = checkStructure();
+		if (!this.world.isRemote) {
+			updateStructure();
+			updateEnergyStored();
 		}
 	}
-	
+
+	private void updateStructure() {
+		++controlTicks;
+
+		if (controlTicks > 20)
+		{
+			controlTicks = 0;
+			reactorBuilt = checkStructure();
+			energyStorage.setMaxEnergyStored(getReactorYield() * 100);
+		}
+	}
+
+	private void updateEnergyStored() {
+	    energyStorage.receiveEnergy(getReactorYield(), false);
+	}
+
 	@Override
 	public void readFromNBT(NBTTagCompound compound)
 	{
+		if (compound.hasKey("IR_EnergyStored"))
+			energyStorage.setEnergyStored(compound.getInteger("IR_EnergyStored"));
+
 		super.readFromNBT(compound);
 	}
-	
+
 	@Override
 	public NBTTagCompound writeToNBT(NBTTagCompound compound)
 	{
 		NBTTagCompound tag = super.writeToNBT(compound);
-		
+
+		tag.setInteger("IR_EnergyStored", energyStorage.getEnergyStored());
+
 		return tag;
 	}
-	
+
 	@SuppressWarnings("unused")
 	private void turnGlass()
 	{
@@ -311,5 +357,35 @@ public class TileEntityIRController extends TileEntity implements ITickable
 			isReactor = false;
 		
 		return isReactor;
+	}
+
+	@Override
+	public Object getGuiClient(InventoryPlayer inventoryPlayer) {
+		return new GuiIRController(inventoryPlayer, this);
+	}
+
+	@Override
+	public Object getGuiServer(InventoryPlayer inventoryPlayer) {
+		return new BaseContainer(inventoryPlayer, this);
+	}
+
+	@Override
+	public MessageTile getGuiMessage() {
+		MessageTile message = super.getGuiMessage();
+
+		message.addBoolean(this.reactorBuilt);
+		message.addInt(getGeneratorBlockCount());
+		message.addInt(getEnergyStored());
+		message.addInt(getMaxEnergyStored());
+
+		return message;
+	}
+
+	@Override
+	public void handleMessageTile(MessageTile message) {
+		reactorBuilt = message.getBoolean();
+		generatorBlockCount = message.getInt();
+	    energyStorage.setEnergyStored(message.getInt());
+		energyStorage.setMaxEnergyStored(message.getInt());
 	}
 }

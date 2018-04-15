@@ -1,7 +1,5 @@
 package zairus.iskalliumreactors.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.ITileEntityProvider;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
 import net.minecraft.tileentity.TileEntity;
@@ -10,7 +8,7 @@ import net.minecraftforge.fml.common.registry.GameRegistry;
 import zairus.iskalliumreactors.IskalliumReactors;
 import zairus.iskalliumreactors.tileentity.TileEntityIRPowerTap;
 
-public class BlockIRPowerTap extends Block implements ITileEntityProvider, IBlockTileEntity
+public class BlockIRPowerTap extends BlockIRBase
 {
 	public BlockIRPowerTap()
 	{
